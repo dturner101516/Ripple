@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ripple - Clean Addictive Build</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<style>
+  :root {
+    --bg: #0a0a1f;
+    --cyan: #00ffff;
+    --cyan-dim: #006a88;
+    --beacon: #ffcc00;
+    --pink: #ff42d0;
+    --red: #ff3f5f;
+    --blue-gray: #667799;
+    --soft: rgba(0,255,255,0.18);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: Arial, Helvetica, sans-serif;
+    touch-action: none;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #ui {
+    position: absolute;
+    top: calc(18px + env(safe-area-inset-top));
+    left: 18px;
+    color: white;
+    pointer-events: none;
+    text-shadow: 0 0 10px cyan;
+    line-height: 1.5;
+    font-size: 15px;
+    z-index: 10;
+  }
+
+  #ui .stars {
+    color: var(--beacon);
+    letter-spacing: 1px;
+    display: inline-block;
+    transition: transform .16s ease, text-shadow .16s ease;
+  }
+
+  #right-panel {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top));
+    right: 18px;
+    text-align: right;
+    z-index: 12;
+  }
+
+  #level {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: 0 0 12px #00ffff, 0 0 20px #00ffff;
+    margin-bottom: 8px;
+  }
+
+  .round-btn {
+    width: 42px;
+    height: 42px;
+    background: rgba(0,255,255,0.18);
+    border: 2.5px solid #00ffff;
+    color: #00ffff;
+    font-size: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-left: 7px;
+    box-shadow: 0 0 14px rgba(0,255,255,0.16);
+    touch-action: manipulation;
+  }
+
+  .round-btn:active {
+    transform: scale(0.85);
+    background: rgba(0,255,255,0.35);
+  }
+
+  .round-btn:disabled {
+    opacity: 0.32;
+    filter: grayscale(1);
+  }
+
+  #message {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.86);
+    color: #fff6b3;
+    font-size: 42px;
+    font-weight: bold;
+    opacity: 0;
+    text-shadow:
+      0 0 10px #000,
+      0 0 18px #ffcc00,
+      0 4px 0 rgba(0,0,0,.65);
+    pointer-events: none;
+    transition: all 0.35s ease;
+    white-space: pre-line;
+    text-align: center;
+    z-index: 20;
+    width: 92vw;
+    background: rgba(0,0,0,.36);
+    border: 1.5px solid rgba(255,204,0,.42);
+    border-radius: 22px;
+    padding: 16px 18px;
+    backdrop-filter: blur(2px);
+  }
+
+  #message.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  #combo {
+    position: absolute;
+    top: calc(112px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%) scale(0.86);
+    color: #00ffff;
+    font-size: 28px;
+    font-weight: bold;
+    opacity: 0;
+    text-shadow: 0 0 20px cyan;
+    transition: all .16s ease;
+    z-index: 18;
+    pointer-events: none;
+  }
+
+  #combo.show {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.2);
+  }
+
+  #charge-indicator {
+    position: absolute;
+    border: 3px solid rgba(0,255,255,0.85);
+    border-radius: 50%;
+    pointer-events: none;
+    display: none;
+    width: 66px;
+    height: 66px;
+    margin-left: -33px;
+    margin-top: -33px;
+    box-shadow: 0 0 18px rgba(0,255,255,.35), inset 0 0 20px rgba(0,255,255,.14);
+    z-index: 15;
+  }
+
+  #charge-ring {
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    background: conic-gradient(var(--cyan) 0deg, rgba(255,255,255,.08) 0deg);
+    opacity: .85;
+  }
+
+  #charge-indicator.overcharge {
+    border-color: rgba(255,63,95,.95);
+    box-shadow: 0 0 22px rgba(255,63,95,.65), inset 0 0 20px rgba(255,63,95,.18);
+  }
+
+  #charge-indicator.overcharge #charge-ring {
+    background: conic-gradient(var(--red) 360deg, rgba(255,255,255,.08) 0deg) !important;
+  }
+
+  #toast {
+    position: absolute;
+    bottom: calc(34px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    background: rgba(0,0,0,.38);
+    border: 1px solid rgba(0,255,255,.25);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity .18s ease;
+    text-shadow: 0 0 10px cyan;
+    z-index: 22;
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: 92vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #toast.show { opacity: 1; }
+
+
+  #title-screen,
+  #options-screen,
+  #achievements-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      radial-gradient(circle at 50% 24%, rgba(0,255,255,.24), transparent 34%),
+      rgba(5, 8, 22, .94);
+    backdrop-filter: blur(10px);
+    color: white;
+    text-align: left;
+  }
+
+  #title-screen.show,
+  #options-screen.show,
+  #achievements-screen.show {
+    display: flex;
+  }
+
+  .title-card {
+    width: min(340px, 88vw);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  #title-screen .title-card {
+    text-align: center;
+  }
+
+  .game-logo {
+    position: relative;
+    display: inline-block;
+    font-size: 52px;
+    font-weight: 800;
+    line-height: .88;
+    letter-spacing: -2.4px;
+    color: #f7feff;
+    text-shadow: 0 0 22px rgba(0,255,255,.45);
+    margin: 0 0 34px;
+    text-align: center;
+  }
+
+  .logo-word {
+    display: inline-block;
+  }
+
+  .logo-i-letter {
+    position: relative;
+    display: inline-block;
+  }
+
+  .logo-i-dot {
+    position: absolute;
+    left: 54%;
+    top: -0.02em;
+    width: 13px;
+    height: 13px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: rgba(225, 255, 255, .98);
+    box-shadow:
+      0 0 14px rgba(0,255,255,.98),
+      0 0 34px rgba(0,255,255,.58);
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .logo-i-dot .title-ripple-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    border-radius: 50%;
+    border: 1.35px solid rgba(0,255,255,.92);
+    animation: titleRipple 2.5s ease-out infinite;
+    box-shadow: 0 0 18px rgba(0,255,255,.42);
+    pointer-events: none;
+  }
+
+  .logo-i-dot .title-ripple-ring:nth-child(1) { animation-delay: 0s; }
+  .logo-i-dot .title-ripple-ring:nth-child(2) { animation-delay: .68s; }
+  .logo-i-dot .title-ripple-ring:nth-child(3) { animation-delay: 1.36s; }
+
+  @keyframes titleRipple {
+    0% {
+      transform: scale(.22);
+      opacity: 0;
+    }
+    16% {
+      opacity: .95;
+    }
+    100% {
+      transform: scale(6.4);
+      opacity: 0;
+    }
+  }
+
+
+  .game-tagline {
+    font-size: 11px;
+    color: #00ffff;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 30px;
+  }
+
+  .menu-stack {
+    display: grid;
+    gap: 11px;
+  }
+
+  .menu-btn {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 16px;
+    border: 1px solid rgba(0,255,255,.34);
+    background: rgba(255,255,255,.045);
+    color: #f2feff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    padding: 13px 14px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    cursor: pointer;
+    touch-action: manipulation;
+    text-align: center;
+  }
+
+  .menu-btn.primary {
+    background: linear-gradient(90deg, rgba(0,255,255,.24), rgba(0,255,255,.14));
+    border-color: rgba(0,255,255,.62);
+    color: #ffffff;
+    box-shadow: 0 0 22px rgba(0,255,255,.24), inset 0 1px 0 rgba(255,255,255,.09);
+  }
+
+  .menu-btn:active {
+    transform: scale(.985);
+    background: rgba(0,255,255,.24);
+  }
+
+  .menu-btn:disabled {
+    opacity: .25;
+    filter: grayscale(1);
+  }
+
+  .menu-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+  }
+
+  .screen-title {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -1.2px;
+    color: #f7feff;
+    text-shadow: 0 0 18px rgba(0,255,255,.45);
+    margin: 0 0 8px;
+  }
+
+  .screen-copy {
+    color: #9defff;
+    font-size: 13px;
+    line-height: 1.35;
+    margin: 0 0 22px;
+  }
+
+  .option-row,
+  .achievement-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid rgba(0,255,255,.26);
+    background: rgba(255,255,255,.035);
+    border-radius: 16px;
+    padding: 12px 13px;
+    margin-bottom: 10px;
+    color: #d7ecff;
+    font-size: 14px;
+    text-align: left;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  .achievement-row.locked {
+    opacity: .38;
+  }
+
+  .achievement-name {
+    font-weight: 750;
+    color: #f7feff;
+  }
+
+  .achievement-desc {
+    font-size: 12px;
+    color: #86dfe8;
+    margin-top: 2px;
+  }
+
+  .toggle-pill {
+    min-width: 58px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 7px 10px;
+    color: #e7ffff;
+    border: 1px solid rgba(0,255,255,.45);
+    background: rgba(0,255,255,.14);
+    font-weight: 750;
+    font-size: 12px;
+  }
+
+
+  #tutorial-popup {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(.96);
+    width: min(340px, 88vw);
+    background: rgba(10, 10, 31, .94);
+    border: 1.25px solid rgba(0,255,255,.42);
+    box-shadow: 0 0 24px rgba(0,255,255,.24), inset 0 0 14px rgba(0,255,255,.045);
+    border-radius: 20px;
+    padding: 14px;
+    color: white;
+    z-index: 45;
+    display: none;
+    text-align: left;
+    backdrop-filter: blur(5px);
+  }
+
+  #tutorial-popup.show {
+    display: block;
+    animation: tutorialPop .18s ease-out forwards;
+  }
+
+  @keyframes tutorialPop {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  #tutorial-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 9px;
+  }
+
+  #tutorial-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: 24px;
+    background: rgba(0,255,255,.18);
+    border: 1px solid rgba(0,255,255,.32);
+    text-shadow: 0 0 14px cyan;
+  }
+
+  #tutorial-title {
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1.05;
+    font-weight: bold;
+    text-shadow: 0 0 10px cyan;
+  }
+
+  #tutorial-body {
+    color: #d7ecff;
+    font-size: 13.5px;
+    line-height: 1.28;
+    margin-bottom: 12px;
+    width: 100%;
+  }
+
+  #tutorial-body b {
+    color: #ffcc00;
+  }
+
+  .tutorial-note {
+    color: #d7ecff;
+    font-size: 13.5px;
+    line-height: 1.32;
+    margin: 2px 0 11px;
+    width: 100%;
+    display: block;
+  }
+
+  .tutorial-note b {
+    color: #ffcc00;
+  }
+
+  .cost-card {
+    background: rgba(0,255,255,.055);
+    border: 1px solid rgba(0,255,255,.24);
+    border-radius: 15px;
+    padding: 10px;
+    margin: 8px 0 10px;
+    width: 100%;
+  }
+
+  .cost-title {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    opacity: .9;
+    margin-bottom: 8px;
+    text-shadow: 0 0 8px rgba(0,255,255,.55);
+  }
+
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+  }
+
+  .cost-pill {
+    border-radius: 13px;
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(255,255,255,.09);
+    padding: 8px 5px;
+    text-align: center;
+  }
+
+  .cost-action {
+    color: #00ffff;
+    font-size: 11.5px;
+    font-weight: bold;
+    text-shadow: 0 0 8px cyan;
+    margin-bottom: 3px;
+  }
+
+  .cost-num {
+    color: #ffcc00;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255,204,0,.5);
+  }
+
+  .cost-desc {
+    color: #9eb7dc;
+    font-size: 10.5px;
+    line-height: 1.1;
+    margin-top: 4px;
+  }
+
+  #tutorial-ok-btn {
+    width: 100%;
+    border-radius: 15px;
+    border: 1.25px solid rgba(0,255,255,.42);
+    background: rgba(0,255,255,.18);
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 11px 10px;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(0,255,255,.18);
+    touch-action: manipulation;
+  }
+
+  #tutorial-ok-btn:active {
+    transform: scale(.97);
+    background: rgba(0,255,255,.2);
+  }
+
+  #fail-menu {
+    position: absolute;
+    left: 50%;
+    top: 58%;
+    transform: translate(-50%, -50%) scale(0.92);
+    width: min(300px, 86vw);
+    background: rgba(10, 10, 31, .9);
+    border: 1.5px solid rgba(0,255,255,.45);
+    box-shadow: 0 0 30px rgba(0,255,255,.24), inset 0 0 18px rgba(0,255,255,.06);
+    border-radius: 22px;
+    padding: 14px;
+    color: white;
+    z-index: 35;
+    display: none;
+    text-align: center;
+    backdrop-filter: blur(4px);
+  }
+
+  #fail-menu.show {
+    display: block;
+    animation: failPop .22s ease-out forwards;
+  }
+
+  @keyframes failPop {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.82); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  #fail-menu-title {
+    color: #00ffff;
+    font-size: 17px;
+    font-weight: bold;
+    text-shadow: 0 0 12px cyan;
+    margin-bottom: 12px;
+  }
+
+  #fail-menu-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .fail-btn {
+    min-height: 76px;
+    border-radius: 18px;
+    border: 1.5px solid rgba(0,255,255,.45);
+    background: rgba(0,255,255,.18);
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(0,255,255,.18);
+    touch-action: manipulation;
+  }
+
+  .fail-btn span {
+    display: block;
+    font-size: 31px;
+    margin-bottom: 4px;
+  }
+
+  .fail-btn:active {
+    transform: scale(.94);
+    background: rgba(0,255,255,.22);
+  }
+
+  #fail-restart-btn,
+  #fail-levels-btn {
+    border-color: rgba(0,255,255,.45);
+    background: rgba(0,255,255,.18);
+  }
+
+  #level-card {
+    position: absolute;
+    left: 50%;
+    bottom: calc(54px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(340px, 92vw);
+    background: rgba(10, 10, 31, .86);
+    border: 1.5px solid rgba(0,255,255,.45);
+    box-shadow: 0 0 30px rgba(0,255,255,.15);
+    border-radius: 18px;
+    padding: 12px;
+    color: white;
+    z-index: 30;
+    display: none;
+  }
+
+  #level-card.show { display:block; }
+
+  #level-card-title {
+    color: var(--cyan);
+    font-weight: bold;
+    font-size: 17px;
+    text-shadow: 0 0 12px cyan;
+    margin-bottom: 8px;
+  }
+
+  #level-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    max-height: 210px;
+    overflow-y: auto;
+  }
+
+  .level-tile {
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(0,255,255,.38);
+    background: rgba(0,255,255,.09);
+    color: white;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .level-tile.current {
+    background: rgba(0,255,255,.26);
+    box-shadow: 0 0 12px rgba(0,255,255,.25);
+  }
+
+  .level-tile:disabled {
+    opacity: .25;
+  }
+
+  .tile-stars {
+    display:block;
+    color: var(--beacon);
+    font-size: 9px;
+    margin-top: 2px;
+  }
+
+  @media (max-height: 720px) {
+    #ui { font-size: 13px; line-height: 1.35; top: calc(12px + env(safe-area-inset-top)); }
+    #right-panel { top: calc(10px + env(safe-area-inset-top)); right: 12px; }
+    #level { font-size: 19px; }
+    .round-btn { width: 40px; height: 40px; font-size: 21px; }
+    #combo { top: calc(92px + env(safe-area-inset-top)); }
+    #message { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div>Dots: <span id="covered">0</span>/<span id="total">0</span></div>
+  <div>Ripples: <span id="taps">0</span> &nbsp;&nbsp; Limit: <span id="par" style="color:#ffcc00;">3</span></div>
+  <div>Score: <span id="score">0</span></div>
+  <div>Beacons: <span id="stars" class="stars">○○○</span></div>
+</div>
+
+<div id="right-panel">
+  <div id="level">Level <span id="levelNum">1</span></div>
+  <button id="music-btn" class="round-btn" title="Toggle Music">♪</button>
+  <button id="undo-btn" class="round-btn" title="Undo Last Ripple">↶</button>
+  <button id="levels-btn" class="round-btn" title="Level Select">☰</button>
+  <button id="reset-btn" class="round-btn" title="Restart Current Level">↺</button>
+</div>
+
+<div id="message"></div>
+<div id="combo">COMBO ×<span id="comboCount">2</span></div>
+<div id="toast"></div>
+
+<div id="charge-indicator">
+  <div id="charge-ring"></div>
+</div>
+
+<div id="title-screen" class="show">
+  <div class="title-card">
+    <div class="game-logo" aria-label="Ripple">
+      <span class="logo-word">R<span class="logo-i-letter">ı<span class="logo-i-dot" aria-hidden="true"><span class="title-ripple-ring"></span><span class="title-ripple-ring"></span><span class="title-ripple-ring"></span></span></span>pple</span>
+    </div>
+    <div class="menu-stack">
+      <button id="new-game-btn" class="menu-btn primary">New Game</button>
+      <button id="continue-btn" class="menu-btn">Continue</button>
+      <button id="title-levels-btn" class="menu-btn">Levels</button>
+      <div class="menu-row">
+        <button id="options-btn" class="menu-btn">Options</button>
+        <button id="achievements-btn" class="menu-btn">Awards</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="options-screen">
+  <div class="title-card">
+    <div class="screen-title">Options</div>
+    <p class="screen-copy">Audio and game settings.</p>
+    <div class="option-row">
+      <div>
+        <b>Music</b>
+        <div class="achievement-desc">Background loop</div>
+      </div>
+      <button id="option-music-btn" class="toggle-pill">ON</button>
+    </div>
+    <button id="options-back-btn" class="menu-btn">Back</button>
+  </div>
+</div>
+
+<div id="achievements-screen">
+  <div class="title-card">
+    <div class="screen-title">Awards</div>
+    <div id="achievement-list"></div>
+    <button id="achievements-back-btn" class="menu-btn">Back</button>
+  </div>
+</div>
+
+
+<div id="tutorial-popup">
+  <div id="tutorial-header">
+    <div id="tutorial-icon">◎</div>
+    <div id="tutorial-title">Ripple Basics</div>
+  </div>
+  <div id="tutorial-body">Tap to make a ripple.</div>
+  <button id="tutorial-ok-btn">GOT IT</button>
+</div>
+
+<div id="fail-menu">
+  <div id="fail-menu-title">Try again?</div>
+  <div id="fail-menu-buttons">
+    <button id="fail-restart-btn" class="fail-btn"><span>↺</span>Restart</button>
+    <button id="fail-levels-btn" class="fail-btn"><span>☰</span>Levels</button>
+  </div>
+</div>
+
+<div id="level-card">
+  <div id="level-card-title">Level Select</div>
+  <div id="level-grid"></div>
+</div>
+
+<canvas id="game"></canvas>
+<audio id="bg-music" loop preload="auto"><source src="background.ogg" type="audio/ogg"></audio>
+
+<script>
+/*
+  RIPPLE - Clean Addictive Build v34 - No Boom On Over Limit Max Three
+
+  Main changes:
+  - Clean original-style UI restored.
+  - Deterministic dot hits: no mushy random painting.
+  - Dots visibly highlight on ripple contact, even if not painted.
+  - 3-star level goals.
+  - One undo per level.
+  - Beacon / Anchor / Bomb special dots.
+  - Saved stars and unlocked levels.
+*/
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const coveredEl = document.getElementById('covered');
+const totalEl = document.getElementById('total');
+const tapsEl = document.getElementById('taps');
+const parEl = document.getElementById('par');
+const scoreEl = document.getElementById('score');
+const levelEl = document.getElementById('levelNum');
+const starsEl = document.getElementById('stars');
+const totalStarsEl = document.getElementById('totalStars'); // optional; hidden from HUD now
+
+const messageEl = document.getElementById('message');
+const comboEl = document.getElementById('combo');
+const comboCountEl = document.getElementById('comboCount');
+const toastEl = document.getElementById('toast');
+
+const resetBtn = document.getElementById('reset-btn');
+const undoBtn = document.getElementById('undo-btn');
+const levelsBtn = document.getElementById('levels-btn');
+const musicBtn = document.getElementById('music-btn');
+const bgMusic = document.getElementById('bg-music');
+const chargeIndicator = document.getElementById('charge-indicator');
+const chargeRing = document.getElementById('charge-ring');
+const levelCard = document.getElementById('level-card');
+const levelGrid = document.getElementById('level-grid');
+const failMenu = document.getElementById('fail-menu');
+const failRestartBtn = document.getElementById('fail-restart-btn');
+const failLevelsBtn = document.getElementById('fail-levels-btn');
+
+const tutorialPopup = document.getElementById('tutorial-popup');
+const tutorialIcon = document.getElementById('tutorial-icon');
+const tutorialTitle = document.getElementById('tutorial-title');
+const tutorialBody = document.getElementById('tutorial-body');
+const tutorialOkBtn = document.getElementById('tutorial-ok-btn');
+
+const titleScreen = document.getElementById('title-screen');
+const optionsScreen = document.getElementById('options-screen');
+const achievementsScreen = document.getElementById('achievements-screen');
+const newGameBtn = document.getElementById('new-game-btn');
+const continueBtn = document.getElementById('continue-btn');
+const titleLevelsBtn = document.getElementById('title-levels-btn');
+const optionsBtn = document.getElementById('options-btn');
+const achievementsBtn = document.getElementById('achievements-btn');
+const optionsBackBtn = document.getElementById('options-back-btn');
+const achievementsBackBtn = document.getElementById('achievements-back-btn');
+const optionMusicBtn = document.getElementById('option-music-btn');
+const achievementList = document.getElementById('achievement-list');
+
+let width, height, dpr;
+let level = 1;
+let dots = [];
+let ripples = [];
+let particles = [];
+let taps = 0;
+let score = 0;
+let levelStartScore = 0;
+let currentCombo = 1;
+let comboTimeout = null;
+let hasWon = false;
+let currentPar = 3;
+
+let isCharging = false;
+let chargeStartTime = 0;
+let chargeX = 0;
+let chargeY = 0;
+
+let undoStack = [];
+let undoUsed = false;
+let currentSeed = 1;
+let audioCtx = null;
+let musicEnabled = true;
+let musicStarted = false;
+let pendingTutorial = null;
+let tutorialInputLocked = false;
+let bonusStars = 0;
+let levelBeaconTotal = 0;
+let levelFailed = false;
+
+const TUTORIAL_VERSION = 15;
+const DEFAULT_SAVE = { unlocked: 1, currentLevel: 1, gamesStarted: false, stars: {}, bestScore: 0, tutorialsSeen: {}, tutorialVersion: 0 };
+let save = loadSave();
+
+function loadSave() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('rippleCleanSave') || '{}');
+    const merged = Object.assign({}, DEFAULT_SAVE, parsed, {
+      stars: Object.assign({}, parsed.stars || {}),
+      tutorialsSeen: Object.assign({}, parsed.tutorialsSeen || {})
+    });
+
+    // If tutorial text/mechanics changed, show the tutorial again.
+    if (merged.tutorialVersion !== TUTORIAL_VERSION) {
+      merged.tutorialsSeen = {};
+      merged.tutorialVersion = TUTORIAL_VERSION;
+    }
+
+    return merged;
+  } catch {
+    return {...DEFAULT_SAVE};
+  }
+}
+
+function saveGame() {
+  try {
+    save.tutorialVersion = TUTORIAL_VERSION;
+    localStorage.setItem('rippleCleanSave', JSON.stringify(save));
+  } catch {}
+  if (typeof updateTitleButtons === 'function') updateTitleButtons();
+}
+
+function totalStars() {
+  return Object.values(save.stars || {}).reduce((a,b) => a + Number(b || 0), 0);
+}
+
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+resize();
+window.addEventListener('resize', resize);
+
+function rngFor(seed) {
+  return function() {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+class Dot {
+  constructor(x, y, type, resistance, vx = 0, vy = 0) {
+    this.x = x;
+    this.y = y;
+    this.r = 11;
+    this.type = type || 'normal';
+    this.resistance = resistance ?? 0.48;
+    this.painted = false;
+    this.vx = vx;
+    this.vy = vy;
+    this.flash = 0;       // key fix: visual highlight on contact
+    this.failedFlash = 0; // red/purple flash when contacted but not painted
+    this.bombUsed = false;
+    this.armed = false; // bombs become dangerous only after being armed
+  }
+
+  update(dt) {
+    this.flash = Math.max(0, this.flash - dt * 2.2);
+    this.failedFlash = Math.max(0, this.failedFlash - dt * 2.2);
+
+    if (level >= 12) {
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (this.x < 30 || this.x > width - 30) this.vx *= -1;
+      if (this.y < 100 || this.y > height - 48) this.vy *= -1;
+      this.x = Math.max(30, Math.min(width - 30, this.x));
+      this.y = Math.max(100, Math.min(height - 48, this.y));
+    }
+  }
+
+  draw() {
+    const baseColor = getDotColor(this);
+    const flashBoost = this.flash;
+    const failed = this.failedFlash;
+
+    ctx.save();
+
+    // Contact halo.
+    if (flashBoost > 0 || failed > 0) {
+      const pulse = Math.max(flashBoost, failed);
+      const pulseColor = failed > 0 ? '#ff3f5f' : '#ffffff';
+
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r + 10 + (1 - pulse) * 18, 0, Math.PI * 2);
+      ctx.strokeStyle = failed > 0
+        ? `rgba(255,63,95,${pulse * 0.72})`
+        : `rgba(255,255,255,${pulse * 0.62})`;
+      ctx.lineWidth = 3 + pulse * 2.5;
+      ctx.shadowBlur = 24;
+      ctx.shadowColor = pulseColor;
+      ctx.stroke();
+    }
+
+    // Persistent lit state: bright outer aura, bright body, bright inner core.
+    if (this.painted) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r + 9, 0, Math.PI * 2);
+      ctx.fillStyle = this.type === 'normal'
+        ? 'rgba(11,127,136,0.045)'
+        : 'rgba(255,255,255,0.035)';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = baseColor;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = 1.35;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = baseColor;
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = this.painted ? 8 : 16;
+    ctx.shadowColor = this.painted ? baseColor : '#445577';
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.painted ? this.r : this.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner icon/shine
+    if (this.type === 'beacon') {
+      // Draw a tiny lighthouse/beacon icon instead of relying on emoji/font symbols.
+      const lit = this.painted;
+      ctx.save();
+      ctx.translate(this.x, this.y);
+
+      // Light beam when active/covered.
+      if (lit) {
+        ctx.fillStyle = 'rgba(255,204,0,0.22)';
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(-18, -15);
+        ctx.lineTo(-6, -6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(18, -15);
+        ctx.lineTo(6, -6);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Tower body.
+      ctx.fillStyle = lit ? '#fff4a8' : '#d9b343';
+      ctx.beginPath();
+      ctx.moveTo(-5, 8);
+      ctx.lineTo(5, 8);
+      ctx.lineTo(3, -5);
+      ctx.lineTo(-3, -5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Roof.
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-6, -5);
+      ctx.lineTo(0, -10);
+      ctx.lineTo(6, -5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lamp.
+      ctx.fillStyle = lit ? '#ffcc00' : '#6f5b10';
+      ctx.beginPath();
+      ctx.arc(0, -3, lit ? 3.5 : 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    } else if (this.type === 'anchor') {
+      ctx.strokeStyle = this.painted ? '#ffffff' : '#c8b6ff';
+      ctx.lineWidth = this.painted ? 4 : 3;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y - 7);
+      ctx.lineTo(this.x + 7, this.y);
+      ctx.lineTo(this.x, this.y + 7);
+      ctx.lineTo(this.x - 7, this.y);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (this.type === 'bomb') {
+      // Always show the bomb/starburst marker. Never use the hollow circle here.
+      ctx.fillStyle = this.armed || this.painted ? '#ffffff' : '#ff9aaa';
+      ctx.font = this.armed ? 'bold 17px Arial' : 'bold 15px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✹', this.x, this.y + 1);
+
+      if (this.armed && !this.bombUsed) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r + 9 + Math.sin(Date.now()/120)*3, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,63,95,.95)';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = '#ff3f5f';
+        ctx.stroke();
+      }
+    } else {
+      ctx.fillStyle = this.painted ? 'rgba(235,255,255,.72)' : '#aabbdd';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.painted ? this.r * 0.38 : this.r * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+class Ripple {
+  constructor(x, y, strength, overcharge = 0, precision = false) {
+    this.x = x;
+    this.y = y;
+    this.radius = precision ? 0 : 8;
+    this.strength = strength;
+    this.overcharge = overcharge;
+    this.precision = precision;
+    this.precisionResolved = false;
+
+    // Precision taps are single-dot tools, not mini screen-clears.
+    // Charged ripples cover clusters.
+    // Overcharged ripples are wide and dangerous around bombs.
+    if (precision) {
+      this.speed = 4.8;
+      this.maxRadius = 24;
+      this.thickness = 7;
+    } else {
+      // Hold length now smoothly controls ripple size.
+      // Light hold = smaller ripple. Longer hold = bigger ripple.
+      // Overcharge still adds extra size and danger.
+      this.speed = 5.7 - strength * 1.9 + overcharge * 0.45;
+      this.maxRadius = 58 + strength * 330 + overcharge * 105;
+      this.thickness = 8 + strength * 14 + overcharge * 18;
+    }
+
+    this.alpha = 1;
+
+    // touchedDots = visual feedback only.
+    // hitDots = dots already successfully resolved/painted by this ripple.
+    // The previous version used hitDots too early, which meant a dot could get
+    // tagged on the weak outer edge and then skipped when the ripple actually
+    // covered it. That made dots appear not to light up.
+    this.touchedDots = new Set();
+    this.hitDots = new Set();
+  }
+
+  update() {
+    this.radius += this.speed;
+    this.alpha = Math.max(0, 1 - (this.radius / this.maxRadius));
+  }
+
+  draw() {
+    ctx.save();
+
+    if (this.precision) {
+      // Tiny pulse so a quick tap feels like a point tool.
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(0, 255, 255, ${this.alpha * 0.75})`;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#00ffff';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${this.alpha * 0.8})`;
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = this.overcharge > 0
+      ? `rgba(255, 63, 95, ${this.alpha * 0.82})`
+      : `rgba(0, 255, 255, ${this.alpha * 0.82})`;
+    ctx.lineWidth = this.thickness;
+    ctx.shadowBlur = 26 + this.strength * 24;
+    ctx.shadowColor = this.overcharge > 0 ? '#ff3f5f' : '#00ffff';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${this.alpha * 0.38})`;
+    ctx.lineWidth = this.strength > 0.85 ? 1.25 : 2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+class Particle {
+  constructor(x, y, text, color = '#ffffff') {
+    this.x = x;
+    this.y = y;
+    this.text = text;
+    this.color = color;
+    this.life = 1;
+    this.vx = -18 + Math.random() * 36;
+    this.vy = -42 - Math.random() * 28;
+    this.size = text === 'BOOM' ? 34 : 14 + Math.random() * 8;
+  }
+
+  update(dt) {
+    this.life -= dt * 1.4;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = this.color;
+    ctx.font = `bold ${this.size}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.restore();
+  }
+}
+
+class HitPulse {
+  constructor(x, y, success = true) {
+    this.x = x;
+    this.y = y;
+    this.success = success;
+    this.life = 1;
+    this.radius = 8;
+  }
+
+  update(dt) {
+    this.life -= dt * 2.8;
+    this.radius += dt * 70;
+  }
+
+  draw() {
+    const a = Math.max(0, this.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = this.success ? '#ffffff' : '#ff3f5f';
+    ctx.lineWidth = this.success ? 5 : 4;
+    ctx.shadowBlur = 28;
+    ctx.shadowColor = this.success ? '#00ffff' : '#ff3f5f';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // little center spark
+    ctx.fillStyle = this.success ? '#ffffff' : '#ff3f5f';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 3 + a * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class FlyingBeacon {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+
+    // Aim for the "Stars" display in the top-left UI.
+    const rect = starsEl.getBoundingClientRect();
+    this.tx = rect.left + rect.width * 0.45;
+    this.ty = rect.top + rect.height * 0.5;
+
+    this.life = 1;
+    this.t = 0;
+    this.sx = x;
+    this.sy = y;
+    this.collected = false;
+  }
+
+  update(dt) {
+    this.t = Math.min(1, this.t + dt * 1.45);
+    this.life = 1 - this.t;
+    const ease = 1 - Math.pow(1 - this.t, 3);
+
+    // Arc upward before landing in the stars HUD.
+    const arc = Math.sin(this.t * Math.PI) * 70;
+    this.x = this.sx + (this.tx - this.sx) * ease;
+    this.y = this.sy + (this.ty - this.sy) * ease - arc;
+  }
+
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - this.t * 0.15);
+    ctx.fillStyle = '#ffcc00';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ffcc00';
+    ctx.font = `bold ${24 - this.t * 5}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◉', this.x, this.y);
+    ctx.restore();
+
+    if (this.t >= 1 && !this.collected) {
+      this.collected = true;
+      bonusStars = Math.min(3, bonusStars + 1);
+      updateUI();
+
+      starsEl.style.transform = 'scale(1.35)';
+      starsEl.style.textShadow = '0 0 18px #ffcc00';
+      setTimeout(() => {
+        starsEl.style.transform = '';
+        starsEl.style.textShadow = '';
+      }, 180);
+    }
+  }
+}
+
+class ExplosionParticle {
+  constructor(x, y) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 80 + Math.random() * 260;
+    this.x = x;
+    this.y = y;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.life = 1;
+    this.radius = 3 + Math.random() * 8;
+    this.color = ['#ff3f5f', '#ff8a00', '#ffcc00', '#ffffff'][Math.floor(Math.random() * 4)];
+  }
+
+  update(dt) {
+    this.life -= dt * 1.7;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vx *= 0.96;
+    this.vy *= 0.96;
+    this.radius += dt * 10;
+  }
+
+  draw() {
+    const a = Math.max(0, this.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+class ExplosionRing {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = 12;
+    this.life = 1;
+  }
+
+  update(dt) {
+    this.life -= dt * 1.25;
+    this.radius += dt * 360;
+  }
+
+  draw() {
+    const a = Math.max(0, this.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 10 * a + 2;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#ff3f5f';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function getDotColor(dot) {
+  // Lit/covered dots should be unmistakable and stay lit.
+  if (dot.painted) {
+    if (dot.type === 'beacon') return '#9f8426';
+    if (dot.type === 'anchor') return '#7f63a4';
+    if (dot.type === 'bomb') return '#94394a';
+    return '#0b7f88';
+  }
+
+  // Unlit dots are intentionally dull.
+  if (dot.type === 'beacon') return '#6f5b10';
+  if (dot.type === 'anchor') return '#3f3472';
+  if (dot.type === 'bomb') return '#602033';
+  return '#283653';
+}
+
+function calculatePar() {
+  if (level <= 2) return 3;
+  if (level <= 5) return 4;
+  if (level <= 9) return 5;
+  return 5 + Math.floor((level - 9) / 3);
+}
+
+function createDots() {
+  dots = [];
+  currentSeed = 9301 + level * 7919;
+  const rand = rngFor(currentSeed);
+  const baseDots = Math.min(96, 15 + level * 5);
+  const clusters = Math.min(7, 2 + Math.floor(level / 2));
+  const top = 110;
+  const bottom = height - 64;
+
+  for (let c = 0; c < clusters; c++) {
+    const cx = 58 + rand() * (width - 116);
+    const cy = top + rand() * (bottom - top);
+    const clusterSize = Math.floor(baseDots / clusters) + 2;
+    const spread = 42 + Math.min(70, level * 5);
+
+    for (let i = 0; i < clusterSize; i++) {
+      const angle = rand() * Math.PI * 2;
+      const dist = Math.pow(rand(), 0.7) * spread;
+      const x = Math.max(35, Math.min(width - 35, cx + Math.cos(angle) * dist));
+      const y = Math.max(top, Math.min(bottom, cy + Math.sin(angle) * dist));
+      dots.push(makeDot(x, y, rand));
+    }
+  }
+
+  while (dots.length < baseDots) {
+    dots.push(makeDot(
+      45 + rand() * (width - 90),
+      top + rand() * (bottom - top),
+      rand
+    ));
+  }
+
+  // Beacon rule:
+  // Once beacons are introduced, every level should have exactly 3.
+  // This keeps the bonus objective consistent and avoids levels like 11 having only 2.
+  normalizeBeaconCount(rand);
+}
+
+function normalizeBeaconCount(rand) {
+  const target = level >= 3 ? 3 : 0;
+  let beacons = dots.filter(d => d.type === 'beacon');
+
+  // Too many: convert extras back to normal dots.
+  if (beacons.length > target) {
+    for (let i = target; i < beacons.length; i++) {
+      beacons[i].type = 'normal';
+      beacons[i].resistance = 0.34 + rand() * 0.24;
+    }
+  }
+
+  // Too few: promote safe normal dots into beacons.
+  beacons = dots.filter(d => d.type === 'beacon');
+  let needed = target - beacons.length;
+
+  if (needed > 0) {
+    const candidates = dots
+      .filter(d => d.type === 'normal')
+      .sort((a, b) => {
+        // Prefer dots closer to the middle play area, not tucked against edges.
+        const ac = Math.abs(a.x - width / 2) + Math.abs(a.y - height / 2);
+        const bc = Math.abs(b.x - width / 2) + Math.abs(b.y - height / 2);
+        return ac - bc;
+      });
+
+    for (let i = 0; i < candidates.length && needed > 0; i++) {
+      candidates[i].type = 'beacon';
+      candidates[i].resistance = 0.46;
+      needed--;
+    }
+  }
+}
+
+
+function makeDot(x, y, rand) {
+  let type = 'normal';
+  const roll = rand();
+
+  if (level >= 3 && roll < 0.075) type = 'beacon';
+  else if (level >= 5 && roll < 0.145) type = 'anchor';
+  else if (level >= 7 && roll < 0.20) type = 'bomb';
+
+  let resistance = 0.28 + rand() * 0.28;
+  if (type === 'beacon') resistance = 0.46;
+  if (type === 'anchor') resistance = 0.82;
+  if (type === 'bomb') resistance = 0.40;
+
+  let vx = 0, vy = 0;
+  if (level >= 12) {
+    const speed = 11 + level * 1.15;
+    vx = (rand() - 0.5) * speed;
+    vy = (rand() - 0.5) * speed;
+  }
+
+  return new Dot(x, y, type, resistance, vx, vy);
+}
+
+function countCovered() {
+  return dots.filter(d => d.painted).length;
+}
+
+function getBaseStars() {
+  if (taps <= currentPar - 1) return 3;
+  if (taps === currentPar) return 2;
+  if (taps <= currentPar + 2) return 1;
+  return 0;
+}
+
+function getFinalStars() {
+  // Final level rating still respects par, plus any beacons collected.
+  return Math.min(3, getBaseStars() + bonusStars);
+}
+
+function getCollectedStars() {
+  // This is what the top-left Stars meter shows during play.
+  // It starts empty and fills as beacon dots are collected.
+  return Math.min(3, bonusStars);
+}
+
+function levelStarsText() {
+  // Show up to three collectible star slots, even if the level contains more beacon dots.
+  // This keeps the HUD clean and makes beacons feel like a focused bonus objective.
+  const slots = Math.min(3, levelBeaconTotal);
+  if (slots <= 0) return '—';
+  const filled = Math.min(bonusStars, slots);
+  return '◉'.repeat(filled) + '○'.repeat(slots - filled);
+}
+
+function starsText(stars) {
+  return '★'.repeat(stars) + '☆'.repeat(3 - stars);
+}
+
+function showMessage(text, duration = 1300) {
+  messageEl.textContent = text;
+  messageEl.classList.add('show');
+  setTimeout(() => messageEl.classList.remove('show'), duration);
+}
+
+let toastTimer = null;
+function showToast(text, duration = 1000) {
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), duration);
+}
+
+function spawnFlyingBeacon(x, y) {
+  particles.push(new FlyingBeacon(x, y));
+}
+
+function showCombo(multi) {
+  currentCombo = multi;
+  comboCountEl.textContent = multi;
+  comboEl.classList.add('show');
+  if (comboTimeout) clearTimeout(comboTimeout);
+  comboTimeout = setTimeout(() => comboEl.classList.remove('show'), 900);
+}
+
+function updateUI() {
+  const coveredNow = countCovered();
+  coveredEl.textContent = coveredNow;
+  totalEl.textContent = dots.length;
+  tapsEl.textContent = taps;
+  parEl.textContent = currentPar;
+  scoreEl.textContent = Math.floor(score);
+  levelEl.textContent = level;
+  starsEl.textContent = levelStarsText();
+  if (totalStarsEl) totalStarsEl.textContent = totalStars();
+
+  undoBtn.disabled = undoUsed || undoStack.length === 0 || hasWon;
+}
+
+function snapshotLevel() {
+  if (undoUsed || hasWon) return;
+  undoStack = [{
+    dots: dots.map(d => ({
+      painted: d.painted,
+      bombUsed: d.bombUsed,
+      armed: d.armed
+    })),
+    taps,
+    score,
+    currentCombo,
+    bonusStars,
+    levelBeaconTotal,
+    levelFailed
+  }];
+}
+
+function undoRipple() {
+  if (undoUsed || undoStack.length === 0 || hasWon) return;
+
+  const snap = undoStack.pop();
+  dots.forEach((d, i) => {
+    d.painted = snap.dots[i].painted;
+    d.bombUsed = snap.dots[i].bombUsed;
+    d.armed = !!snap.dots[i].armed;
+    d.flash = 0;
+    d.failedFlash = 0;
+  });
+
+  taps = snap.taps;
+  score = snap.score;
+  currentCombo = snap.currentCombo;
+  bonusStars = snap.bonusStars || 0;
+  levelBeaconTotal = snap.levelBeaconTotal || levelBeaconTotal;
+  levelFailed = !!snap.levelFailed;
+  ripples = [];
+  undoUsed = true;
+
+  particles.push(new Particle(width / 2, height * 0.44, 'UNDO', '#ffcc00'));
+  showToast('Last ripple rewound');
+  beep('undo');
+  vibrate(20);
+  updateUI();
+}
+
+function resetCurrentLevel() {
+  levelStartScore = score;
+  startLevel(level, true);
+}
+
+function nextLevel() {
+  level++;
+  save.unlocked = Math.max(save.unlocked || 1, level);
+  saveGame();
+  startLevel(level);
+}
+
+function showTitleScreen() {
+  titleScreen.classList.add('show');
+  optionsScreen.classList.remove('show');
+  achievementsScreen.classList.remove('show');
+  failMenu.classList.remove('show');
+  levelCard.classList.remove('show');
+  tutorialPopup.classList.remove('show');
+  tutorialInputLocked = true;
+  updateTitleButtons();
+}
+
+function hideTitleScreens() {
+  titleScreen.classList.remove('show');
+  optionsScreen.classList.remove('show');
+  achievementsScreen.classList.remove('show');
+  tutorialInputLocked = false;
+}
+
+function updateTitleButtons() {
+  continueBtn.style.display = save.gamesStarted ? 'block' : 'none';
+  titleLevelsBtn.disabled = !save.gamesStarted && (save.unlocked || 1) <= 1;
+  if (optionMusicBtn) optionMusicBtn.textContent = musicEnabled ? 'ON' : 'OFF';
+}
+
+function newGame() {
+  // Keep achievements/best scores, but restart progression and tutorials.
+  save.unlocked = 1;
+  save.currentLevel = 1;
+  save.gamesStarted = true;
+  save.stars = {};
+  save.tutorialsSeen = {};
+  save.tutorialVersion = 0;
+  score = 0;
+  levelStartScore = 0;
+  saveGame();
+  hideTitleScreens();
+  startLevel(1);
+}
+
+function continueGame() {
+  hideTitleScreens();
+  score = 0;
+  levelStartScore = 0;
+  startLevel(save.currentLevel || save.unlocked || 1);
+}
+
+function openOptions() {
+  titleScreen.classList.remove('show');
+  optionsScreen.classList.add('show');
+  updateTitleButtons();
+}
+
+function openAchievements() {
+  titleScreen.classList.remove('show');
+  renderAchievements();
+  achievementsScreen.classList.add('show');
+}
+
+function renderAchievements() {
+  const total = totalStars();
+  const best = save.bestScore || 0;
+  const unlocked = save.unlocked || 1;
+
+  const achievements = [
+    { name: 'First Light', desc: 'Start your first game.', done: !!save.gamesStarted },
+    { name: 'Beacon Run', desc: 'Collect at least 3 beacon rewards.', done: total >= 3 },
+    { name: 'Level 10', desc: 'Reach level 10.', done: unlocked >= 10 },
+    { name: '10K Score', desc: 'Reach a best score of 10,000.', done: best >= 10000 },
+    { name: 'Level 20', desc: 'Reach level 20.', done: unlocked >= 20 }
+  ];
+
+  achievementList.innerHTML = achievements.map(a => `
+    <div class="achievement-row ${a.done ? '' : 'locked'}">
+      <div>
+        <div class="achievement-name">${a.done ? '✓ ' : '○ '}${a.name}</div>
+        <div class="achievement-desc">${a.desc}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getTutorialForLevel(lvl) {
+  if (lvl === 1 && !save.tutorialsSeen.basic) {
+    return {
+      key: 'basic',
+      icon: '◎',
+      title: 'Ripple Basics',
+      body: '<div class="tutorial-note">Tap to light dots with a ripple. <b>Quick tap</b> for one dot. <b>Hold</b> for bigger ripples. <b>Overcharge</b> detonates bombs.</div><div class="cost-card"><div class="cost-title">Ripple Costs</div><div class="cost-grid"><div class="cost-pill"><div class="cost-action">Tap</div><div class="cost-num">1</div><div class="cost-desc">Precise</div></div><div class="cost-pill"><div class="cost-action">Hold</div><div class="cost-num">2</div><div class="cost-desc">Grows</div></div><div class="cost-pill"><div class="cost-action">Overcharge</div><div class="cost-num">3</div><div class="cost-desc">Bomb Risk</div></div></div></div><b>Clear before the Limit.</b> Each ripple adds to your total. If you hit the Limit and dots remain, the level fails.<br><br><b>Combo:</b> light 5+ dots with one ripple for more points.'
+    };
+  }
+
+  if (lvl === 3 && !save.tutorialsSeen.beacons) {
+    return {
+      key: 'beacons',
+      icon: '◉',
+      title: 'Beacon Lights',
+      body: 'Beacon lights are optional collectibles. Hit them to fill the <b>Beacon meter</b> in the top left.<br><br>Collected beacons can improve your final clear rating, up to 3 total.'
+    };
+  }
+
+  if (lvl === 5 && !save.tutorialsSeen.anchors) {
+    return {
+      key: 'anchors',
+      icon: '◆',
+      title: 'Anchors',
+      body: 'Anchors are tougher dots. A quick tap will not light them.<br><br><b>Hold to charge</b>, then release to activate anchors.'
+    };
+  }
+
+  if (lvl === 7 && !save.tutorialsSeen.bombs) {
+    return {
+      key: 'bombs',
+      icon: '✹',
+      title: 'Bombs',
+      body: 'Bombs are dangerous but manageable.<br><br><b>First hit:</b> arms the bomb.<br><b>Second hit:</b> BOOM — level failed.<br><br><b>Overcharged ripples</b> trigger bombs immediately.'
+    };
+  }
+
+  return null;
+}
+
+function showTutorial(tutorial) {
+  tutorialInputLocked = true;
+  pendingTutorial = tutorial;
+  tutorialIcon.textContent = tutorial.icon;
+  tutorialTitle.textContent = tutorial.title;
+  tutorialBody.innerHTML = tutorial.body;
+  tutorialPopup.classList.add('show');
+}
+
+function closeTutorial() {
+  if (pendingTutorial) {
+    save.tutorialsSeen[pendingTutorial.key] = true;
+    saveGame();
+  }
+  pendingTutorial = null;
+  tutorialInputLocked = false;
+  tutorialPopup.classList.remove('show');
+}
+
+function startLevel(targetLevel, keepScore = false) {
+  level = targetLevel;
+  save.gamesStarted = true;
+  save.currentLevel = level;
+  save.unlocked = Math.max(save.unlocked || 1, level);
+  saveGame();
+  currentPar = calculatePar();
+  if (!keepScore) levelStartScore = score;
+
+  createDots();
+  ripples = [];
+  particles = [];
+  taps = 0;
+  currentCombo = 1;
+  hasWon = false;
+  levelFailed = false;
+  bonusStars = 0;
+  levelBeaconTotal = dots.filter(d => d.type === 'beacon').length;
+  undoStack = [];
+  undoUsed = false;
+
+  levelCard.classList.remove('show');
+  failMenu.classList.remove('show');
+  tutorialPopup.classList.remove('show');
+  tutorialInputLocked = false;
+
+  updateUI();
+  showMessage('LEVEL ' + level, 800);
+
+  const introTutorial = getTutorialForLevel(level);
+  if (introTutorial) {
+    // Lock input immediately so players cannot tap before the tutorial appears.
+    tutorialInputLocked = true;
+    setTimeout(() => showTutorial(introTutorial), 450);
+  } else {
+    tutorialInputLocked = false;
+  }
+
+  if (level === 3) showToast('Beacon dots give bonus score', 1600);
+  else if (level === 5) showToast('Diamond dots need a charged ripple', 1600);
+  else if (level === 7) showToast('Red bombs reset nearby painted dots', 1600);
+  else if (level === 12) showToast('Dots move now', 1300);
+}
+
+function loseLevel(reason, isBomb = false) {
+  if (hasWon || levelFailed) return;
+  levelFailed = true;
+  hasWon = true;
+  ripples = [];
+  isCharging = false;
+  chargeIndicator.style.display = 'none';
+  chargeIndicator.classList.remove('overcharge');
+
+  if (isBomb) {
+    // Bomb failures get the arcade BOOM sequence.
+    showMessage('BOOM', 1500);
+    beep('bomb');
+    vibrate([70, 30, 90]);
+
+    setTimeout(() => {
+      showMessage('LEVEL FAILED', 1900);
+      showToast('Restart or choose a level', 2200);
+    }, 1500);
+
+    setTimeout(() => {
+      failMenu.classList.add('show');
+    }, 3000);
+  } else {
+    // Normal failures, like going over the limit, should not say BOOM.
+    const label = reason || 'LEVEL FAILED';
+    if (label === 'LIMIT EXCEEDED') {
+      showMessage('LIMIT EXCEEDED\nLEVEL FAILED', 1900);
+    } else if (label === 'LIMIT REACHED') {
+      showMessage('LIMIT REACHED\nLEVEL FAILED', 1900);
+    } else {
+      showMessage('LEVEL FAILED', 1900);
+    }
+    showToast('Restart or choose a level', 2200);
+    beep('undo');
+    vibrate(35);
+
+    setTimeout(() => {
+      failMenu.classList.add('show');
+    }, 1700);
+  }
+}
+
+function checkLimitReachedFailure() {
+  if (hasWon || levelFailed) return;
+  if (ripples.length > 0) return;
+
+  const covered = countCovered();
+  if (taps >= currentPar && covered < dots.length) {
+    loseLevel('LIMIT REACHED');
+  }
+}
+
+function completeLevel() {
+  hasWon = true;
+  const stars = getFinalStars();
+
+  const parBonus = Math.max(0, currentPar - taps) * 360;
+  const starBonus = stars * 500;
+  const perfectBonus = stars === 3 ? 800 : 0;
+  score += parBonus + starBonus + perfectBonus;
+
+  const previousStars = Number((save.stars || {})[level] || 0);
+  save.stars = save.stars || {};
+  save.stars[level] = Math.max(previousStars, stars);
+  save.unlocked = Math.max(save.unlocked || 1, level + 1);
+  save.bestScore = Math.max(save.bestScore || 0, Math.floor(score));
+  saveGame();
+
+  let line;
+  if (taps <= currentPar - 1 && stars === 3) {
+    line = 'PERFECT\n';
+  } else if (taps <= currentPar && stars >= 2) {
+    line = 'CLEAN CLEAR\n';
+  } else if (stars === 3) {
+    // Beacons can rescue the rating, but over-par clears should not say Perfect.
+    line = 'STAR CLEAR\n';
+  } else if (stars >= 1) {
+    line = 'LEVEL COMPLETE\n';
+  } else {
+    line = 'CLEARED\n';
+  }
+
+  showMessage(line + starsText(stars), 2100);
+  beep('win');
+  vibrate([20, 30, 20]);
+
+  for (let i = 0; i < 26; i++) {
+    particles.push(new Particle(
+      width * (0.2 + Math.random() * 0.6),
+      height * (0.35 + Math.random() * 0.25),
+      ['◉','✦','•'][Math.floor(Math.random()*3)],
+      ['#00ffff','#ffcc00','#ffffff'][Math.floor(Math.random()*3)]
+    ));
+  }
+
+  setTimeout(() => {
+    nextLevel();
+  }, 2250);
+}
+
+function createRipple(x, y, holdTime = 0) {
+  if (tutorialInputLocked || hasWon || levelFailed) return;
+  if (y < 92 || y > height - 36) return; // keep taps out of UI zones
+
+  snapshotLevel();
+
+  // Charge design:
+  // quick tap = precision ripple, costs 1
+  // holding creates a charged ripple that grows smoothly with hold time, costs 2
+  // holding too long = overcharge, costs 3 and automatically triggers bombs
+  const quickTapCutoff = 155;
+  const overchargeStart = 500;
+
+  // Charge begins immediately so holding feels responsive.
+  // Releasing before quickTapCutoff still creates a precision tap.
+  const strength = Math.min(1, Math.min(holdTime, overchargeStart) / overchargeStart);
+  const overcharge = Math.min(1, Math.max(0, (holdTime - overchargeStart) / 300));
+  const precision = holdTime < quickTapCutoff && overcharge <= 0.05;
+
+  ripples.push(new Ripple(x, y, strength, overcharge, precision));
+
+  // Ripple cost against par:
+  // quick precision tap = 1
+  // charged ripple = 2
+  // overcharged ripple = 3
+  if (overcharge > 0.05) taps += 3;
+  else if (!precision) taps += 2;
+  else taps += 1;
+
+  // Par is now a hard limit. Going over the limit fails the level.
+  if (taps > currentPar) {
+    updateUI();
+    loseLevel('LIMIT EXCEEDED');
+    return;
+  }
+
+  if (overcharge > 0.15) {
+    showToast('OVERCHARGED — cost 3, triggers bombs', 1150);
+    particles.push(new Particle(x, y - 8, 'OVERCHARGE', '#ff3f5f'));
+  }
+
+  currentCombo = 1;
+  updateUI();
+  beep(overcharge > 0.15 ? 'bomb' : strength > 0.65 ? 'charge' : 'tap');
+  vibrate(overcharge > 0.15 ? 28 : strength > 0.65 ? 16 : 7);
+}
+
+function processPrecisionTap(r) {
+  if (r.precisionResolved) return 0;
+  r.precisionResolved = true;
+
+  // Find the single closest unpainted/armed target near the tap.
+  // This fixes the old donut problem where tapping on a dot lit the dots around it.
+  let best = null;
+  let bestDist = Infinity;
+  const targetRadius = 23;
+
+  for (const dot of dots) {
+    if (dot.painted && !(dot.type === 'bomb' && dot.armed)) continue;
+
+    const dist = Math.hypot(dot.x - r.x, dot.y - r.y);
+    if (dist < bestDist && dist <= targetRadius) {
+      best = dot;
+      bestDist = dist;
+    }
+  }
+
+  if (!best) {
+    particles.push(new HitPulse(r.x, r.y, false));
+    return 0;
+  }
+
+  best.flash = 1;
+  particles.push(new HitPulse(best.x, best.y, true));
+
+  // Precision tapping an armed bomb still detonates it.
+  if (best.type === 'bomb' && best.armed && !best.bombUsed) {
+    triggerBomb(best);
+    return 0;
+  }
+
+  // Precision tapping a bomb the first time arms it.
+  if (best.type === 'bomb' && !best.bombUsed) {
+    best.painted = true;
+    handleBombHit(best, r);
+    return 1;
+  }
+
+  // Anchors still need a charged ripple; precision tap only warns.
+  if (best.type === 'anchor') {
+    best.failedFlash = 1;
+    particles.push(new Particle(best.x, best.y - 8, 'CHARGE', '#b66cff'));
+    return 0;
+  }
+
+  best.painted = true;
+  let add = Math.floor(85 * currentCombo * (1 + level * 0.045));
+
+  if (best.type === 'beacon') {
+    if (bonusStars < 3) {
+      spawnFlyingBeacon(best.x, best.y);
+    }
+    add += 240;
+    particles.push(new Particle(best.x, best.y - 8, '◉', '#ffcc00'));
+    beep('gold');
+  } else if (Math.random() < 0.28) {
+    particles.push(new Particle(best.x, best.y - 8, '+' + add, '#00ffff'));
+  }
+
+  score += add;
+  return 1;
+}
+
+function processRippleHits(r) {
+  if (levelFailed || hasWon) return;
+
+  if (r.precision) {
+    const painted = processPrecisionTap(r);
+    // Precision taps only hit one dot, so they do not build combo.
+    return;
+  }
+
+  let paintedThis = 0;
+
+  for (const dot of dots) {
+    // Armed bombs are already painted, but a second contact must still count.
+    if (dot.painted && r.hitDots.has(dot) && !(dot.type === 'bomb' && dot.armed)) continue;
+
+    const dist = Math.hypot(dot.x - r.x, dot.y - r.y);
+    const edgeDistance = Math.abs(dist - r.radius);
+
+    // Visual contact band: show feedback when the ring brushes a dot.
+    const contactBand = r.thickness / 2 + dot.r * 0.85;
+
+    // Paint band: quick taps are precise; charged ripples are more forgiving.
+    const paintBand = r.thickness / 2 + dot.r * (0.18 + r.strength * 0.32);
+
+    if (edgeDistance < contactBand) {
+      // Visual touch happens once per ripple/dot.
+      if (!r.touchedDots.has(dot)) {
+        r.touchedDots.add(dot);
+        dot.flash = 1;
+        particles.push(new HitPulse(dot.x, dot.y, true));
+      }
+
+      // Overcharged ripples automatically trigger bombs on contact.
+      if (dot.type === 'bomb' && r.overcharge > 0.05 && !dot.bombUsed && !r.hitDots.has(dot)) {
+        r.hitDots.add(dot);
+        handleBombHit(dot, r);
+        continue;
+      }
+
+      // If an armed bomb is touched again, it explodes and fails the level.
+      if (dot.type === 'bomb' && dot.armed && !dot.bombUsed && !r.hitDots.has(dot)) {
+        r.hitDots.add(dot);
+        triggerBomb(dot);
+        continue;
+      }
+
+      // If already painted, touching it again just gives visual feedback.
+      if (dot.painted || r.hitDots.has(dot)) continue;
+
+      // Anchor dots still require charge. They flash purple/red until charged.
+      if (dot.type === 'anchor' && r.strength < 0.62) {
+        if (edgeDistance < paintBand) {
+          dot.failedFlash = 1;
+          particles.push(new HitPulse(dot.x, dot.y, false));
+          particles.push(new Particle(dot.x, dot.y - 8, 'CHARGE', '#b66cff'));
+          r.hitDots.add(dot);
+        }
+        continue;
+      }
+
+      // This is the key fix:
+      // Do NOT resolve the dot on the first outer-edge contact.
+      // Wait until the ripple is actually centered close enough to cover it.
+      if (edgeDistance < paintBand) {
+        dot.painted = true;
+        dot.flash = 1;
+        r.hitDots.add(dot);
+        paintedThis++;
+
+        let add = Math.floor(85 * currentCombo * (1 + level * 0.045) * (r.overcharge > 0 ? 0.72 : 1));
+
+        if (dot.type === 'beacon') {
+          if (bonusStars < 3) {
+            spawnFlyingBeacon(dot.x, dot.y);
+          }
+          add += 240;
+          particles.push(new Particle(dot.x, dot.y - 8, '◉', '#ffcc00'));
+          beep('beacon');
+        } else if (dot.type === 'anchor') {
+          add += 120;
+          particles.push(new Particle(dot.x, dot.y - 8, 'ANCHOR', '#b66cff'));
+        } else if (dot.type === 'bomb') {
+          add += 25;
+          handleBombHit(dot, r);
+        } else if (Math.random() < 0.18) {
+          particles.push(new Particle(dot.x, dot.y - 8, '+' + add, '#00ffff'));
+        }
+
+        score += add;
+      }
+    }
+  }
+
+  if (paintedThis >= 5) {
+    showCombo(Math.min(9, currentCombo + 1));
+    score += paintedThis * currentCombo * 10;
+  }
+}
+
+function handleBombHit(dot, ripple) {
+  // Bomb rule:
+  // First normal hit arms it.
+  // Second normal hit explodes and ends the level.
+  // Any overcharged hit triggers it immediately.
+  if (dot.bombUsed) return;
+
+  if (ripple.overcharge > 0.05) {
+    dot.armed = true;
+    dot.painted = true;
+    particles.push(new Particle(dot.x, dot.y - 18, 'OVERCHARGED!', '#ff3f5f'));
+    triggerBomb(dot);
+    return;
+  }
+
+  if (!dot.armed) {
+    dot.armed = true;
+    dot.painted = true;
+
+    particles.push(new Particle(dot.x, dot.y - 18, 'ARMED!', '#ffcc00'));
+    particles.push(new HitPulse(dot.x, dot.y, false));
+    showToast('ARMED — hit it again and the level fails', 1350);
+
+    beep('bomb');
+    vibrate(18);
+    return;
+  }
+
+  triggerBomb(dot);
+}
+
+function triggerBomb(dot) {
+  if (dot.bombUsed) return;
+  dot.bombUsed = true;
+  dot.armed = false;
+
+  // Cool explosion animation centered on the bomb.
+  particles.push(new ExplosionRing(dot.x, dot.y));
+  for (let i = 0; i < 54; i++) {
+    particles.push(new ExplosionParticle(dot.x, dot.y));
+  }
+
+  // Big BOOM text at the blast point plus global BOOM message.
+  particles.push(new Particle(dot.x, dot.y - 14, 'BOOM', '#ffcc00'));
+
+  loseLevel('BOMB HIT TWICE', true);
+}
+
+function gameLoop(time) {
+  const dt = Math.min(0.033, (time - (gameLoop.last || time)) / 1000);
+  gameLoop.last = time;
+
+  // Original-style trail background.
+  ctx.fillStyle = 'rgba(10, 10, 31, 0.16)';
+  ctx.fillRect(0, 0, width, height);
+
+  // Subtle play-field dots.
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.fillStyle = '#00ffff';
+  for (let x = 30; x < width; x += 58) {
+    for (let y = 120; y < height - 50; y += 58) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  for (const dot of dots) dot.update(dt);
+
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.update();
+    r.draw();
+    processRippleHits(r);
+
+    if (r.alpha <= 0.035) ripples.splice(i, 1);
+  }
+
+  for (const dot of dots) dot.draw();
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update(dt);
+    particles[i].draw();
+    if (particles[i].life <= 0) particles.splice(i, 1);
+  }
+
+  if (!hasWon && !levelFailed && dots.length && countCovered() === dots.length && ripples.length === 0) {
+    completeLevel();
+  } else {
+    checkLimitReachedFailure();
+  }
+
+  if (isCharging) {
+    const hold = Date.now() - chargeStartTime;
+    const overchargeStart = 500;
+
+    // Visual charge starts immediately; no dead-feeling delay.
+    const strength = Math.min(1, Math.min(hold, overchargeStart) / overchargeStart);
+    const over = Math.min(1, Math.max(0, (hold - overchargeStart) / 300));
+
+    chargeIndicator.classList.toggle('overcharge', over > 0);
+    chargeRing.style.background = over > 0
+      ? `conic-gradient(var(--red) ${over * 360}deg, rgba(255,255,255,.08) 0deg)`
+      : `conic-gradient(var(--cyan) ${strength * 360}deg, rgba(255,255,255,.08) 0deg)`;
+
+    chargeIndicator.style.transform = `scale(${1 + strength * 0.55 + over * 0.35})`;
+  }
+
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+
+function startCharge(x, y) {
+  if (hasWon || levelFailed) return;
+  if (
+    tutorialInputLocked ||
+    titleScreen.classList.contains('show') ||
+    optionsScreen.classList.contains('show') ||
+    achievementsScreen.classList.contains('show') ||
+    levelCard.classList.contains('show') ||
+    tutorialPopup.classList.contains('show')
+  ) return;
+  if (y < 92 || y > height - 36) return;
+
+  isCharging = true;
+  chargeStartTime = Date.now();
+  chargeX = x;
+  chargeY = y;
+
+  chargeIndicator.style.display = 'block';
+  chargeIndicator.style.left = x + 'px';
+  chargeIndicator.style.top = y + 'px';
+  chargeIndicator.style.transform = 'scale(1)';
+  chargeIndicator.classList.remove('overcharge');
+}
+
+function endCharge() {
+  if (tutorialInputLocked) {
+    isCharging = false;
+    chargeIndicator.style.display = 'none';
+    chargeIndicator.classList.remove('overcharge');
+    return;
+  }
+  if (!isCharging) return;
+
+  const holdTime = Date.now() - chargeStartTime;
+  createRipple(chargeX, chargeY, holdTime);
+
+  isCharging = false;
+  chargeIndicator.style.display = 'none';
+  chargeIndicator.classList.remove('overcharge');
+}
+
+function renderLevelSelect() {
+  levelGrid.innerHTML = '';
+  const max = Math.max(save.unlocked || 1, level, 20);
+
+  for (let i = 1; i <= max; i++) {
+    const btn = document.createElement('button');
+    const unlocked = i <= (save.unlocked || 1);
+    const savedStars = Number((save.stars || {})[i] || 0);
+
+    btn.className = 'level-tile' + (i === level ? ' current' : '');
+    btn.disabled = !unlocked;
+    btn.innerHTML = `${i}<span class="tile-stars">${starsText(savedStars)}</span>`;
+
+    btn.addEventListener('click', () => {
+      if (!unlocked) return;
+      score = 0;
+      levelStartScore = 0;
+      hideTitleScreens();
+      startLevel(i);
+      levelCard.classList.remove('show');
+    });
+
+    levelGrid.appendChild(btn);
+  }
+}
+
+function toggleLevelSelect() {
+  failMenu.classList.remove('show');
+  if (levelCard.classList.contains('show')) {
+    levelCard.classList.remove('show');
+  } else {
+    renderLevelSelect();
+    levelCard.classList.add('show');
+  }
+}
+
+function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
+  let rot = Math.PI / 2 * 3;
+  const step = Math.PI / spikes;
+
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerRadius);
+
+  for (let i = 0; i < spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
+    rot += step;
+    ctx.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
+    rot += step;
+  }
+
+  ctx.lineTo(cx, cy - outerRadius);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function ensureAudio() {
+  // Kept for sound effects. Music now uses the <audio> file element.
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch {}
+}
+
+function startAmbientMusic() {
+  if (!musicEnabled || musicStarted || !bgMusic) return;
+
+  bgMusic.volume = 0.35;
+
+  const playPromise = bgMusic.play();
+  if (playPromise && typeof playPromise.then === 'function') {
+    playPromise.then(() => {
+      musicStarted = true;
+      musicBtn.style.opacity = '1';
+      musicBtn.textContent = '♫';
+    }).catch(() => {
+      // Mobile browsers may block audio until a direct user gesture.
+      musicStarted = false;
+      musicBtn.style.opacity = '.45';
+      musicBtn.textContent = '♪';
+    });
+  } else {
+    musicStarted = true;
+    musicBtn.style.opacity = '1';
+    musicBtn.textContent = '♫';
+  }
+}
+
+function stopAmbientMusic() {
+  if (!bgMusic) return;
+  bgMusic.pause();
+  musicStarted = false;
+  musicBtn.style.opacity = '.45';
+  musicBtn.textContent = '♪';
+}
+
+function toggleMusic() {
+  ensureAudio();
+
+  if (!bgMusic) {
+    showToast('No music file found', 900);
+    return;
+  }
+
+  if (musicStarted || !bgMusic.paused) {
+    musicEnabled = false;
+    stopAmbientMusic();
+    showToast('Music off', 700);
+  } else {
+    musicEnabled = true;
+    startAmbientMusic();
+    showToast('Music on', 700);
+  }
+}
+
+function unlockMusicOnFirstGesture() {
+  ensureAudio();
+  if (musicEnabled && !musicStarted && bgMusic) startAmbientMusic();
+}
+
+
+function beep(type = 'tap') {
+  try {
+    ensureAudio();
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const t = audioCtx.currentTime;
+    const sounds = {
+      tap: [440, 0.035, 'sine'],
+      charge: [260, 0.065, 'triangle'],
+      beacon: [880, 0.08, 'sine'],
+      bomb: [90, 0.14, 'sawtooth'],
+      win: [660, 0.22, 'triangle'],
+      undo: [330, 0.08, 'sine']
+    };
+
+    const [freq, dur, wave] = sounds[type] || sounds.tap;
+    osc.type = wave;
+    osc.frequency.setValueAtTime(freq, t);
+
+    if (type === 'win') osc.frequency.exponentialRampToValueAtTime(1320, t + dur);
+    if (type === 'bomb') osc.frequency.exponentialRampToValueAtTime(55, t + dur);
+
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch {}
+}
+
+function vibrate(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch {}
+}
+
+// Input
+window.addEventListener('pointerdown', unlockMusicOnFirstGesture, { once: true, passive: true });
+canvas.addEventListener('mousedown', e => {
+  unlockMusicOnFirstGesture();
+  startCharge(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', endCharge);
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  unlockMusicOnFirstGesture();
+  const t = e.touches[0];
+  startCharge(t.clientX, t.clientY);
+}, { passive: false });
+
+window.addEventListener('touchend', e => {
+  e.preventDefault();
+  endCharge();
+}, { passive: false });
+
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+resetBtn.addEventListener('click', resetCurrentLevel);
+undoBtn.addEventListener('click', undoRipple);
+levelsBtn.addEventListener('click', toggleLevelSelect);
+
+musicBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  toggleMusic();
+});
+
+musicBtn.addEventListener('click', e => {
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+failRestartBtn.addEventListener('click', () => {
+  failMenu.classList.remove('show');
+  resetCurrentLevel();
+});
+
+failLevelsBtn.addEventListener('click', () => {
+  failMenu.classList.remove('show');
+  toggleLevelSelect();
+});
+
+tutorialOkBtn.addEventListener('click', () => {
+  unlockMusicOnFirstGesture();
+  closeTutorial();
+});
+
+newGameBtn.addEventListener('click', () => {
+  unlockMusicOnFirstGesture();
+  newGame();
+});
+
+continueBtn.addEventListener('click', () => {
+  unlockMusicOnFirstGesture();
+  continueGame();
+});
+
+titleLevelsBtn.addEventListener('click', () => {
+  unlockMusicOnFirstGesture();
+  hideTitleScreens();
+  renderLevelSelect();
+  levelCard.classList.add('show');
+});
+
+optionsBtn.addEventListener('click', openOptions);
+achievementsBtn.addEventListener('click', openAchievements);
+
+optionsBackBtn.addEventListener('click', () => {
+  optionsScreen.classList.remove('show');
+  titleScreen.classList.add('show');
+  updateTitleButtons();
+});
+
+achievementsBackBtn.addEventListener('click', () => {
+  achievementsScreen.classList.remove('show');
+  titleScreen.classList.add('show');
+  updateTitleButtons();
+});
+
+optionMusicBtn.addEventListener('click', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  toggleMusic();
+  updateTitleButtons();
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'r') resetCurrentLevel();
+  if (e.key.toLowerCase() === 'u') undoRipple();
+  if (e.key.toLowerCase() === 'l') toggleLevelSelect();
+});
+
+// Boot
+level = save.currentLevel || 1;
+currentPar = calculatePar();
+createDots();
+updateUI();
+showTitleScreen();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
