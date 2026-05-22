@@ -268,7 +268,7 @@
 
   .logo-i-dot {
     position: absolute;
-    left: 54%;
+    left: 59%;
     top: -0.02em;
     width: 13px;
     height: 13px;
@@ -785,6 +785,7 @@
       </div>
       <button id="option-music-btn" class="toggle-pill">ON</button>
     </div>
+    <button id="replay-tutorial-btn" class="menu-btn">Replay Tutorial</button>
     <button id="options-back-btn" class="menu-btn">Back</button>
   </div>
 </div>
@@ -821,7 +822,8 @@
 </div>
 
 <canvas id="game"></canvas>
-<audio id="bg-music" loop preload="auto"><source src="background.ogg" type="audio/ogg"></audio>
+<audio id="bg-music-a" preload="auto"><source src="background.ogg" type="audio/ogg"></audio>
+<audio id="bg-music-b" preload="auto"><source src="background.ogg" type="audio/ogg"></audio>
 
 <script>
 /*
@@ -858,7 +860,8 @@ const resetBtn = document.getElementById('reset-btn');
 const undoBtn = document.getElementById('undo-btn');
 const levelsBtn = document.getElementById('levels-btn');
 const musicBtn = document.getElementById('music-btn');
-const bgMusic = document.getElementById('bg-music');
+const bgMusicA = document.getElementById('bg-music-a');
+const bgMusicB = document.getElementById('bg-music-b');
 const chargeIndicator = document.getElementById('charge-indicator');
 const chargeRing = document.getElementById('charge-ring');
 const levelCard = document.getElementById('level-card');
@@ -884,6 +887,7 @@ const achievementsBtn = document.getElementById('achievements-btn');
 const optionsBackBtn = document.getElementById('options-back-btn');
 const achievementsBackBtn = document.getElementById('achievements-back-btn');
 const optionMusicBtn = document.getElementById('option-music-btn');
+const replayTutorialBtn = document.getElementById('replay-tutorial-btn');
 const achievementList = document.getElementById('achievement-list');
 
 let width, height, dpr;
@@ -891,6 +895,9 @@ let level = 1;
 let dots = [];
 let ripples = [];
 let particles = [];
+let bgStars = [];
+let bgNebulas = [];
+let bgPlanets = [];
 let taps = 0;
 let score = 0;
 let levelStartScore = 0;
@@ -910,13 +917,18 @@ let currentSeed = 1;
 let audioCtx = null;
 let musicEnabled = true;
 let musicStarted = false;
+let activeMusic = null;
+let standbyMusic = null;
+let musicFadeTimer = null;
+let musicLoopTimer = null;
 let pendingTutorial = null;
 let tutorialInputLocked = false;
+let forceTutorialKeys = new Set();
 let bonusStars = 0;
 let levelBeaconTotal = 0;
 let levelFailed = false;
 
-const TUTORIAL_VERSION = 15;
+const TUTORIAL_VERSION = 99;
 const DEFAULT_SAVE = { unlocked: 1, currentLevel: 1, gamesStarted: false, stars: {}, bestScore: 0, tutorialsSeen: {}, tutorialVersion: 0 };
 let save = loadSave();
 
@@ -933,6 +945,7 @@ function loadSave() {
       merged.tutorialsSeen = {};
       merged.tutorialVersion = TUTORIAL_VERSION;
     }
+    merged.tutorialsSeen = merged.tutorialsSeen || {};
 
     return merged;
   } catch {
@@ -961,6 +974,7 @@ function resize() {
   canvas.style.width = width + 'px';
   canvas.style.height = height + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  initSpaceBackground();
 }
 
 resize();
@@ -974,6 +988,117 @@ function rngFor(seed) {
     t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
+}
+
+
+function initSpaceBackground() {
+  const rand = rngFor(Math.floor(width * 17 + height * 29));
+
+  bgStars = [];
+  bgNebulas = [];
+  bgPlanets = [];
+
+  const starCount = Math.max(90, Math.floor((width * height) / 7000));
+  for (let i = 0; i < starCount; i++) {
+    bgStars.push({
+      x: rand() * width,
+      y: rand() * height,
+      r: rand() < 0.85 ? 0.7 + rand() * 1.2 : 1.4 + rand() * 1.4,
+      a: 0.24 + rand() * 0.56,
+      twinkle: rand() * Math.PI * 2,
+      speed: 0.45 + rand() * 1.1,
+      hue: rand() < 0.14 ? 'cyan' : (rand() < 0.08 ? 'gold' : 'white')
+    });
+  }
+
+  bgNebulas = [
+    { x: width * 0.18, y: height * 0.20, r: Math.min(width, height) * 0.34, color: '0,255,255', alpha: 0.09 },
+    { x: width * 0.82, y: height * 0.28, r: Math.min(width, height) * 0.27, color: '116,87,255', alpha: 0.08 },
+    { x: width * 0.55, y: height * 0.82, r: Math.min(width, height) * 0.38, color: '0,170,255', alpha: 0.06 }
+  ];
+
+  bgPlanets = [
+    { x: width * 0.84, y: height * 0.16, r: Math.min(width, height) * 0.10, glow: Math.min(width, height) * 0.16 }
+  ];
+}
+
+function drawSpaceBackground(time) {
+  // Deep-space gradient.
+  const g = ctx.createLinearGradient(0, 0, 0, height);
+  g.addColorStop(0, '#050918');
+  g.addColorStop(0.45, '#071127');
+  g.addColorStop(1, '#081730');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, width, height);
+
+  // Nebula glows.
+  for (const n of bgNebulas) {
+    const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+    grad.addColorStop(0, `rgba(${n.color}, ${n.alpha})`);
+    grad.addColorStop(0.45, `rgba(${n.color}, ${n.alpha * 0.45})`);
+    grad.addColorStop(1, `rgba(${n.color}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Faint planet.
+  for (const p of bgPlanets) {
+    const glow = ctx.createRadialGradient(p.x, p.y, p.r * 0.2, p.x, p.y, p.glow);
+    glow.addColorStop(0, 'rgba(120, 230, 255, 0.16)');
+    glow.addColorStop(0.55, 'rgba(80, 180, 255, 0.06)');
+    glow.addColorStop(1, 'rgba(80, 180, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.glow, 0, Math.PI * 2);
+    ctx.fill();
+
+    const body = ctx.createRadialGradient(p.x - p.r * 0.28, p.y - p.r * 0.34, p.r * 0.18, p.x, p.y, p.r);
+    body.addColorStop(0, 'rgba(210,245,255,0.18)');
+    body.addColorStop(0.55, 'rgba(90,145,215,0.13)');
+    body.addColorStop(1, 'rgba(32,52,92,0.10)');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Stars.
+  ctx.save();
+  for (const s of bgStars) {
+    const twinkle = 0.72 + 0.28 * Math.sin(time * 0.0011 * s.speed + s.twinkle);
+    let color = '255,255,255';
+    if (s.hue === 'cyan') color = '120,255,255';
+    if (s.hue === 'gold') color = '255,220,130';
+
+    ctx.globalAlpha = s.a * twinkle;
+    ctx.fillStyle = `rgb(${color})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (s.r > 1.7) {
+      ctx.globalAlpha = s.a * 0.28 * twinkle;
+      ctx.strokeStyle = `rgb(${color})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(s.x - 3, s.y);
+      ctx.lineTo(s.x + 3, s.y);
+      ctx.moveTo(s.x, s.y - 3);
+      ctx.lineTo(s.x, s.y + 3);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Subtle horizon haze so the HUD blends into the scene.
+  const haze = ctx.createLinearGradient(0, 0, 0, height);
+  haze.addColorStop(0, 'rgba(0,0,0,0)');
+  haze.addColorStop(0.72, 'rgba(0,0,0,0)');
+  haze.addColorStop(1, 'rgba(2,8,20,0.22)');
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, width, height);
 }
 
 class Dot {
@@ -1436,10 +1561,15 @@ function getDotColor(dot) {
 }
 
 function calculatePar() {
-  if (level <= 2) return 3;
-  if (level <= 5) return 4;
-  if (level <= 9) return 5;
-  return 5 + Math.floor((level - 9) / 3);
+  // Limit = maximum ripple-cost budget.
+  // Updated for: tap=1, charged=2, overcharge=3.
+  if (level === 1) return 4;
+  if (level === 2) return 5;
+  if (level <= 4) return 6;
+  if (level <= 6) return 7;
+  if (level <= 9) return 8;
+  if (level <= 12) return 9;
+  return 9 + Math.floor((level - 12) / 3);
 }
 
 function createDots() {
@@ -1701,7 +1831,8 @@ function newGame() {
   save.gamesStarted = true;
   save.stars = {};
   save.tutorialsSeen = {};
-  save.tutorialVersion = 0;
+  save.tutorialVersion = TUTORIAL_VERSION;
+  forceTutorialKeys = new Set(['basic']);
   score = 0;
   levelStartScore = 0;
   saveGame();
@@ -1752,7 +1883,7 @@ function renderAchievements() {
 }
 
 function getTutorialForLevel(lvl) {
-  if (lvl === 1 && !save.tutorialsSeen.basic) {
+  if (lvl === 1 && (forceTutorialKeys.has('basic') || !save.tutorialsSeen.basic)) {
     return {
       key: 'basic',
       icon: '◎',
@@ -1761,7 +1892,7 @@ function getTutorialForLevel(lvl) {
     };
   }
 
-  if (lvl === 3 && !save.tutorialsSeen.beacons) {
+  if (lvl === 3 && (forceTutorialKeys.has('beacons') || !save.tutorialsSeen.beacons)) {
     return {
       key: 'beacons',
       icon: '◉',
@@ -1770,7 +1901,7 @@ function getTutorialForLevel(lvl) {
     };
   }
 
-  if (lvl === 5 && !save.tutorialsSeen.anchors) {
+  if (lvl === 5 && (forceTutorialKeys.has('anchors') || !save.tutorialsSeen.anchors)) {
     return {
       key: 'anchors',
       icon: '◆',
@@ -1779,7 +1910,7 @@ function getTutorialForLevel(lvl) {
     };
   }
 
-  if (lvl === 7 && !save.tutorialsSeen.bombs) {
+  if (lvl === 7 && (forceTutorialKeys.has('bombs') || !save.tutorialsSeen.bombs)) {
     return {
       key: 'bombs',
       icon: '✹',
@@ -1803,6 +1934,7 @@ function showTutorial(tutorial) {
 function closeTutorial() {
   if (pendingTutorial) {
     save.tutorialsSeen[pendingTutorial.key] = true;
+    forceTutorialKeys.delete(pendingTutorial.key);
     saveGame();
   }
   pendingTutorial = null;
@@ -1843,7 +1975,7 @@ function startLevel(targetLevel, keepScore = false) {
   if (introTutorial) {
     // Lock input immediately so players cannot tap before the tutorial appears.
     tutorialInputLocked = true;
-    setTimeout(() => showTutorial(introTutorial), 450);
+    setTimeout(() => showTutorial(introTutorial), 250);
   } else {
     tutorialInputLocked = false;
   }
@@ -2219,22 +2351,8 @@ function gameLoop(time) {
   const dt = Math.min(0.033, (time - (gameLoop.last || time)) / 1000);
   gameLoop.last = time;
 
-  // Original-style trail background.
-  ctx.fillStyle = 'rgba(10, 10, 31, 0.16)';
-  ctx.fillRect(0, 0, width, height);
-
-  // Subtle play-field dots.
-  ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.fillStyle = '#00ffff';
-  for (let x = 30; x < width; x += 58) {
-    for (let y = 120; y < height - 50; y += 58) {
-      ctx.beginPath();
-      ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
+  // Space-themed background.
+  drawSpaceBackground(time);
 
   for (const dot of dots) dot.update(dt);
 
@@ -2381,41 +2499,120 @@ function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
 }
 
 function ensureAudio() {
-  // Kept for sound effects. Music now uses the <audio> file element.
+  // Kept for sound effects. Music uses <audio> file elements.
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
   } catch {}
 }
 
+function fadeAudio(audio, from, to, duration = 350) {
+  if (!audio) return;
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    audio.volume = from + (to - from) * t;
+    if (t < 1 && musicStarted) requestAnimationFrame(step);
+  }
+
+  audio.volume = from;
+  requestAnimationFrame(step);
+}
+
+function scheduleMusicCrossfade() {
+  clearTimeout(musicLoopTimer);
+  if (!musicStarted || !musicEnabled || !activeMusic || !standbyMusic) return;
+
+  const duration = activeMusic.duration;
+  if (!duration || Number.isNaN(duration) || !Number.isFinite(duration)) {
+    // Metadata may not be ready yet; try again shortly.
+    musicLoopTimer = setTimeout(scheduleMusicCrossfade, 500);
+    return;
+  }
+
+  // Start the next copy a little before the current one ends.
+  // Increase this if your file has more dead air at the end.
+  const CROSSFADE_SECONDS = 0.75;
+  const remaining = Math.max(0.05, duration - activeMusic.currentTime - CROSSFADE_SECONDS);
+
+  musicLoopTimer = setTimeout(() => {
+    if (!musicStarted || !musicEnabled) return;
+
+    const oldTrack = activeMusic;
+    const nextTrack = standbyMusic;
+
+    try {
+      nextTrack.currentTime = 0;
+      nextTrack.volume = 0;
+      const p = nextTrack.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+
+    fadeAudio(nextTrack, 0, 0.35, 650);
+    fadeAudio(oldTrack, oldTrack.volume || 0.35, 0, 650);
+
+    setTimeout(() => {
+      try {
+        oldTrack.pause();
+        oldTrack.currentTime = 0;
+      } catch {}
+
+      activeMusic = nextTrack;
+      standbyMusic = oldTrack;
+      scheduleMusicCrossfade();
+    }, 700);
+  }, remaining * 1000);
+}
+
 function startAmbientMusic() {
-  if (!musicEnabled || musicStarted || !bgMusic) return;
+  if (!musicEnabled || musicStarted || !bgMusicA || !bgMusicB) return;
 
-  bgMusic.volume = 0.35;
+  activeMusic = bgMusicA;
+  standbyMusic = bgMusicB;
 
-  const playPromise = bgMusic.play();
+  activeMusic.volume = 0.35;
+  standbyMusic.volume = 0;
+  activeMusic.loop = false;
+  standbyMusic.loop = false;
+
+  const playPromise = activeMusic.play();
   if (playPromise && typeof playPromise.then === 'function') {
     playPromise.then(() => {
       musicStarted = true;
       musicBtn.style.opacity = '1';
       musicBtn.textContent = '♫';
+      scheduleMusicCrossfade();
     }).catch(() => {
-      // Mobile browsers may block audio until a direct user gesture.
       musicStarted = false;
       musicBtn.style.opacity = '.45';
       musicBtn.textContent = '♪';
+      showToast('Music unavailable in preview', 900);
     });
   } else {
     musicStarted = true;
     musicBtn.style.opacity = '1';
     musicBtn.textContent = '♫';
+    scheduleMusicCrossfade();
   }
 }
 
 function stopAmbientMusic() {
-  if (!bgMusic) return;
-  bgMusic.pause();
+  clearTimeout(musicLoopTimer);
+  clearInterval(musicFadeTimer);
+
+  [bgMusicA, bgMusicB].forEach(audio => {
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 0;
+    } catch {}
+  });
+
   musicStarted = false;
+  activeMusic = null;
+  standbyMusic = null;
   musicBtn.style.opacity = '.45';
   musicBtn.textContent = '♪';
 }
@@ -2423,12 +2620,12 @@ function stopAmbientMusic() {
 function toggleMusic() {
   ensureAudio();
 
-  if (!bgMusic) {
+  if (!bgMusicA || !bgMusicB) {
     showToast('No music file found', 900);
     return;
   }
 
-  if (musicStarted || !bgMusic.paused) {
+  if (musicStarted) {
     musicEnabled = false;
     stopAmbientMusic();
     showToast('Music off', 700);
@@ -2441,7 +2638,7 @@ function toggleMusic() {
 
 function unlockMusicOnFirstGesture() {
   ensureAudio();
-  if (musicEnabled && !musicStarted && bgMusic) startAmbientMusic();
+  if (musicEnabled && !musicStarted && bgMusicA && bgMusicB) startAmbientMusic();
 }
 
 
@@ -2471,8 +2668,19 @@ function beep(type = 'tap') {
     if (type === 'win') osc.frequency.exponentialRampToValueAtTime(1320, t + dur);
     if (type === 'bomb') osc.frequency.exponentialRampToValueAtTime(55, t + dur);
 
+    // Slightly louder ripple feedback so taps/charges are easier to hear over music.
+    const volumes = {
+      tap: 0.14,
+      charge: 0.16,
+      gold: 0.12,
+      bomb: 0.10,
+      win: 0.11,
+      undo: 0.10
+    };
+    const peak = volumes[type] || 0.14;
+
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 
     osc.start(t);
@@ -2486,94 +2694,126 @@ function vibrate(pattern) {
 
 // Input
 window.addEventListener('pointerdown', unlockMusicOnFirstGesture, { once: true, passive: true });
-canvas.addEventListener('mousedown', e => {
-  unlockMusicOnFirstGesture();
-  startCharge(e.clientX, e.clientY);
-});
-window.addEventListener('mouseup', endCharge);
 
-canvas.addEventListener('touchstart', e => {
+let activePointerId = null;
+
+function handlePointerStart(e) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
   e.preventDefault();
   unlockMusicOnFirstGesture();
-  const t = e.touches[0];
-  startCharge(t.clientX, t.clientY);
-}, { passive: false });
+  activePointerId = e.pointerId;
+  try { canvas.setPointerCapture(activePointerId); } catch {}
+  startCharge(e.clientX, e.clientY);
+}
 
-window.addEventListener('touchend', e => {
+function handlePointerEnd(e) {
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
   e.preventDefault();
   endCharge();
-}, { passive: false });
+  try { canvas.releasePointerCapture(activePointerId); } catch {}
+  activePointerId = null;
+}
+
+canvas.addEventListener('pointerdown', handlePointerStart, { passive: false });
+canvas.addEventListener('pointerup', handlePointerEnd, { passive: false });
+canvas.addEventListener('pointercancel', handlePointerEnd, { passive: false });
+canvas.addEventListener('lostpointercapture', () => {
+  if (isCharging) endCharge();
+  activePointerId = null;
+});
+
+if (!window.PointerEvent) {
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    unlockMusicOnFirstGesture();
+    const t = e.touches[0];
+    startCharge(t.clientX, t.clientY);
+  }, { passive: false });
+
+  window.addEventListener('touchend', e => {
+    e.preventDefault();
+    endCharge();
+  }, { passive: false });
+}
 
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-resetBtn.addEventListener('click', resetCurrentLevel);
-undoBtn.addEventListener('click', undoRipple);
-levelsBtn.addEventListener('click', toggleLevelSelect);
+function bindTap(el, handler) {
+  if (!el) return;
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    handler(e);
+  }, { passive: false });
+}
 
-musicBtn.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  e.stopPropagation();
-  toggleMusic();
-});
+bindTap(resetBtn, resetCurrentLevel);
+bindTap(undoBtn, undoRipple);
+bindTap(levelsBtn, toggleLevelSelect);
 
-musicBtn.addEventListener('click', e => {
-  e.preventDefault();
-  e.stopPropagation();
-});
+bindTap(musicBtn, toggleMusic);
 
-failRestartBtn.addEventListener('click', () => {
+bindTap(failRestartBtn, () => {
   failMenu.classList.remove('show');
   resetCurrentLevel();
 });
 
-failLevelsBtn.addEventListener('click', () => {
+bindTap(failLevelsBtn, () => {
   failMenu.classList.remove('show');
   toggleLevelSelect();
 });
 
-tutorialOkBtn.addEventListener('click', () => {
+bindTap(tutorialOkBtn, () => {
   unlockMusicOnFirstGesture();
   closeTutorial();
 });
 
-newGameBtn.addEventListener('click', () => {
+bindTap(newGameBtn, () => {
   unlockMusicOnFirstGesture();
   newGame();
 });
 
-continueBtn.addEventListener('click', () => {
+bindTap(continueBtn, () => {
   unlockMusicOnFirstGesture();
   continueGame();
 });
 
-titleLevelsBtn.addEventListener('click', () => {
+bindTap(titleLevelsBtn, () => {
   unlockMusicOnFirstGesture();
   hideTitleScreens();
   renderLevelSelect();
   levelCard.classList.add('show');
 });
 
-optionsBtn.addEventListener('click', openOptions);
-achievementsBtn.addEventListener('click', openAchievements);
+bindTap(optionsBtn, openOptions);
+bindTap(achievementsBtn, openAchievements);
 
-optionsBackBtn.addEventListener('click', () => {
+bindTap(optionsBackBtn, () => {
   optionsScreen.classList.remove('show');
   titleScreen.classList.add('show');
   updateTitleButtons();
 });
 
-achievementsBackBtn.addEventListener('click', () => {
+bindTap(achievementsBackBtn, () => {
   achievementsScreen.classList.remove('show');
   titleScreen.classList.add('show');
   updateTitleButtons();
 });
 
-optionMusicBtn.addEventListener('click', e => {
-  e.preventDefault();
-  e.stopPropagation();
+bindTap(optionMusicBtn, () => {
   toggleMusic();
   updateTitleButtons();
+});
+
+bindTap(replayTutorialBtn, () => {
+  optionsScreen.classList.remove('show');
+  save.tutorialsSeen = {};
+  save.tutorialVersion = TUTORIAL_VERSION;
+  forceTutorialKeys = new Set(['basic']);
+  saveGame();
+  hideTitleScreens();
+  startLevel(1);
 });
 
 window.addEventListener('keydown', e => {
